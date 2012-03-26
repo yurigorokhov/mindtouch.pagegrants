@@ -12,13 +12,15 @@ namespace MindTouch.PageGrants {
 
     internal class Page {
         public string path;
+        public bool cascade = false;
 
-        public Page(string pagePath) {
-            path = pagePath;
+        public Page(string path, bool cascade) {
+            this.path = path;
+            this.cascade = cascade;
         }
 
         public override string ToString() {
-            return string.Format("Page path: {0}", path);
+            return string.Format("Page path: {0}\nCascate: {1}", path, cascade ? "yes" : "no");
         }
     };
 
@@ -78,7 +80,9 @@ namespace MindTouch.PageGrants {
                     Console.WriteLine(String.Format("WARNING: page path was not specified: \n\n{0}", pageXml));
                     continue;
                 }
-                var p = new Page(pagePath);
+                var cascade = pageXml["./@cascade"].AsBool ?? false;
+                
+                var p = new Page(pagePath, cascade);
                 pageList.Add(p);
                 if(verbose) {
                     Console.WriteLine(p.ToString());
@@ -86,6 +90,22 @@ namespace MindTouch.PageGrants {
             }
             if(pageList.Count == 0) {
                 Console.WriteLine("No page configurations were parsed from the XML config file.");
+                return -1;
+            }
+
+            // Connect to MindTouch
+            if(!site.StartsWith("http://") && !site.StartsWith("https://")) {
+                site = "http://" + site;
+            }
+            var siteUri = new XUri(site);
+            var plug = Plug.New(siteUri).At("@api", "deki").WithCredentials(username, password);
+            DreamMessage msg;
+
+            // Check connection with MindTouch
+            try {
+                msg = plug.At("site", "status").Get();
+            } catch(Exception ex) {
+                Console.WriteLine(string.Format("Cannot connect to {0} with the provided credentials", site));
                 return -1;
             }
 
