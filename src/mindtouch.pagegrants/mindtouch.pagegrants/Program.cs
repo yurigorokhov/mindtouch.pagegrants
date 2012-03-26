@@ -36,11 +36,11 @@ namespace MindTouch.PageGrants {
     /// </summary>
     internal class Page {
         public string path;
-        public bool cascade = false;
+        public string cascade;
         public string restriction;
         public List<XDoc> grants;
 
-        public Page(string path, bool cascade, string restriction, List<XDoc> grants) {
+        public Page(string path, string cascade, string restriction, List<XDoc> grants) {
             this.path = path;
             this.cascade = cascade;
             this.restriction = restriction;
@@ -49,7 +49,7 @@ namespace MindTouch.PageGrants {
 
         public override string ToString() {
             var sw = new StringWriter();
-            sw.WriteLine(string.Format("Page path: {0}\nRestriction: {1}\nCascade: {2}", path, restriction, cascade ? "yes" : "no"));
+            sw.WriteLine(string.Format("Page path: {0}\nRestriction: {1}\nCascade: {2}", path, restriction, cascade));
             foreach(var grant in grants) {
                 sw.WriteLine(string.Format("\n{0}\n", grant));
             }
@@ -113,7 +113,7 @@ namespace MindTouch.PageGrants {
                     Console.WriteLine(String.Format("WARNING: page path was not specified: \n\n{0}", pageXml));
                     continue;
                 }
-                var cascade = pageXml["./@cascade"].AsBool ?? false;
+                var cascade = pageXml["./@cascade"].AsText ?? "none";
                 var restriction = pageXml["./restriction"].AsText ?? "";
                 var grants = new List<XDoc>();
                 foreach(var grant in pageXml[".//grant"]) {
@@ -182,7 +182,7 @@ namespace MindTouch.PageGrants {
             }
             securityDoc["/security"].Add(grants);
             try {
-                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.cascade ? "delta" : "none").Post(securityDoc);
+                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.cascade).Post(securityDoc);
             } catch(Exception ex) {
                 Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.path));
                 if(verbose) {
