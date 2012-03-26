@@ -10,17 +10,29 @@ using MindTouch.Xml;
 
 namespace MindTouch.PageGrants {
 
+    /// <summary>
+    /// Page class to keep track of new restrictions
+    /// </summary>
     internal class Page {
         public string path;
         public bool cascade = false;
+        public string restriction;
+        public List<XDoc> grants;
 
-        public Page(string path, bool cascade) {
+        public Page(string path, bool cascade, string restriction, List<XDoc> grants) {
             this.path = path;
             this.cascade = cascade;
+            this.restriction = restriction;
+            this.grants = grants;
         }
 
         public override string ToString() {
-            return string.Format("Page path: {0}\nCascate: {1}", path, cascade ? "yes" : "no");
+            var sw = new StringWriter();
+            sw.WriteLine(string.Format("Page path: {0}\nRestriction: {1}\nCascade: {2}", path, restriction, cascade ? "yes" : "no"));
+            foreach(var grant in grants) {
+                sw.WriteLine(string.Format("\n{0}\n", grant));
+            }
+            return sw.ToString();
         }
     };
 
@@ -81,8 +93,12 @@ namespace MindTouch.PageGrants {
                     continue;
                 }
                 var cascade = pageXml["./@cascade"].AsBool ?? false;
-                
-                var p = new Page(pagePath, cascade);
+                var restriction = pageXml["./restriction"].AsText ?? "";
+                var grants = new List<XDoc>();
+                foreach(var grant in pageXml[".//grant"]) {
+                    grants.Add(grant);
+                }
+                var p = new Page(pagePath, cascade, restriction, grants);
                 pageList.Add(p);
                 if(verbose) {
                     Console.WriteLine(p.ToString());
@@ -109,7 +125,51 @@ namespace MindTouch.PageGrants {
                 return -1;
             }
 
+            // Update pages
+            foreach(var page in pageList) {
+                if(!dryrun) {
+                    UpdatePage(plug, page, verbose);
+                }
+            }
+
             return 0;
+        }
+
+        private static void UpdatePage(Plug plug, Page page, bool verbose) {
+            if(verbose) {
+                Console.WriteLine("Processing page: " + page.path);
+            }
+            string encodedPath = XUri.EncodeSegment(XUri.EncodeSegment(page.path));
+            DreamMessage msg;
+            try {
+                msg = plug.At("pages", "=" + encodedPath, "security").Get();
+            } catch(Exception ex) {
+                Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.path));
+                if(verbose) {
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine(ex.StackTrace);
+                }
+                return;
+            }
+            var securityDoc = msg.ToDocument();
+            if(!string.IsNullOrEmpty(page.restriction)) {
+                securityDoc["./permissions.page/restriction"].ReplaceValue(page.restriction);
+            }
+            var grants = new XDoc("grants.added");
+            foreach(var grant in page.grants) {
+                grants.Add(grant);
+            }
+            securityDoc["/security"].Add(grants);
+            try {
+                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.cascade ? "delta" : "none").Post(securityDoc);
+            } catch(Exception ex) {
+                Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.path));
+                if(verbose) {
+                    Console.WriteLine(ex.Message);
+                    Console.WriteLine(ex.StackTrace);
+                }
+                return;
+            }
         }
 
         private static void ShowHelp(Options p) {
