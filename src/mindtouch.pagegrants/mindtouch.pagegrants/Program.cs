@@ -114,7 +114,7 @@ namespace MindTouch.PageGrants {
                     continue;
                 }
                 var cascade = pageXml["./@cascade"].AsText ?? "none";
-                var restriction = pageXml["./restriction"].AsText ?? "";
+                var restriction = pageXml["./restriction"].AsText ?? "Public";
                 var grants = new List<XDoc>();
                 foreach(var grant in pageXml[".//grant"]) {
                     grants.Add(grant);
@@ -160,29 +160,18 @@ namespace MindTouch.PageGrants {
             if(verbose) {
                 Console.WriteLine("Processing page: " + page.path);
             }
-            string encodedPath = XUri.EncodeSegment(XUri.EncodeSegment(page.path));
+            string encodedPath = XUri.DoubleEncode(page.path);
             DreamMessage msg;
-            try {
-                msg = plug.At("pages", "=" + encodedPath, "security").Get();
-            } catch(Exception ex) {
-                Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.path));
-                if(verbose) {
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.StackTrace);
-                }
-                return;
-            }
-            var securityDoc = msg.ToDocument();
-            if(!string.IsNullOrEmpty(page.restriction)) {
-                securityDoc["./permissions.page/restriction"].ReplaceValue(page.restriction);
-            }
-            var grants = new XDoc("grants.added");
+            var securityDoc = new XDoc("security");
+            securityDoc.Add(new XDoc("permissions.page").Elem("restriction", page.restriction));
+
+            var grants = new XDoc("grants");
             foreach(var grant in page.grants) {
                 grants.Add(grant);
             }
-            securityDoc["/security"].Add(grants);
+            securityDoc.Add(grants);
             try {
-                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.cascade).Post(securityDoc);
+                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.cascade).Put(securityDoc);
             } catch(Exception ex) {
                 Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.path));
                 if(verbose) {
