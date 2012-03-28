@@ -155,8 +155,7 @@ namespace MindTouch.PageGrants {
             if(!site.StartsWith("http://") && !site.StartsWith("https://")) {
                 site = "http://" + site;
             }
-            var siteUri = new XUri(site);
-            var plug = Plug.New(siteUri).At("@api", "deki").WithCredentials(username, password);
+            var plug = Plug.New(new XUri(site)).At("@api", "deki").WithCredentials(username, password);
             DreamMessage msg;
 
             // Check connection with MindTouch
