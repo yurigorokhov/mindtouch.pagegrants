@@ -1,0 +1,48 @@
+This tool allows one to automatically set permissions to various pages in MindTouch.
+
+Usage: 
+
+Usage: mindtouch.pagegrants.exe -s site.mindtouch.us -u admin -p password config.xml
+  -s, --site=VALUE           Site address
+  -u, --username=VALUE       Username
+  -p, --password=VALUE       Password
+  -v, --verbose              Enable verbose output
+  -d, --dryrun               Only perform a dry run, do not change actual data
+
+You may leave site, username and password blank. The program will prompt you for it.
+
+Here is an example config.xml:
+
+<grants>
+	<page cascade="none">
+		<path>PagePath1</path>
+		<restriction>Private</restriction>
+		<grant>
+			<permissions>
+				<role>Contributor</role>
+			</permissions>
+			<user id="9"></user>
+		</grant>
+	</page>
+
+	<page cascade="absolute">
+		<path>PagePath2</path>
+		<restriction>Semi-Private</restriction>
+		<grant>
+			<permissions>
+				<role>Contributor</role>
+			</permissions>
+			<user id="9"></user>
+		</grant>
+	</page>
+</grants>
+
+Parameters in config file:
+	cascade = none - Do not apply permissions to any subpages
+		  delta - Merge permissions with current state
+		  absolute - Overwrite permissions with those in this file
+	<restriction> = Public | Semi-Public | Semi-Private | Private
+	<rold> = None | Viewer | Contributor | Manager | Admin
+
+For more information on how to construct grants see:
+http://developer.mindtouch.com/en/ref/MindTouch_API/PUT%3Apages%2F%2F%7Bpageid%7D%2F%2Fsecurity
