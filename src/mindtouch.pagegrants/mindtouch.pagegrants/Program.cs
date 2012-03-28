@@ -1,6 +1,6 @@
 ﻿﻿/*
- * MindTouch Dream - a distributed REST framework 
- * Copyright (C) 2006-2011 MindTouch, Inc.
+ * MindTouch Pagegrants 
+ * Copyright (C) 2006-2012 MindTouch, Inc.
  * www.mindtouch.com  oss@mindtouch.com
  *
  * For community documentation and downloads visit wiki.developer.mindtouch.com;
@@ -53,9 +53,9 @@ namespace MindTouch.PageGrants {
         //--- Methods ---
         public override string ToString() {
             var sw = new StringWriter();
-            sw.WriteLine(string.Format("Page path: {0}\nRestriction: {1}\nCascade: {2}", Path, Restriction, Cascade));
+            sw.WriteLine("Page path: {0}\nRestriction: {1}\nCascade: {2}", Path, Restriction, Cascade);
             foreach(var grant in Grants) {
-                sw.WriteLine(string.Format("\n{0}\n", grant));
+                sw.WriteLine("\n{0}\n", grant);
             }
             return sw.ToString();
         }
@@ -69,7 +69,6 @@ namespace MindTouch.PageGrants {
             bool verbose = false, dryrun = false;
             bool showHelp = false;
             string configFile = "";
-
             var options = new Options() {
                 { "s=|site=", "Site address", s => site = s },
                 { "u=|username", "Username", u => username = u },
@@ -93,12 +92,10 @@ namespace MindTouch.PageGrants {
                 } catch(InvalidOperationException) {
                     showHelp = true;
                 }
-
                 if(string.IsNullOrEmpty(site)) {
                     Console.Write("Site: ");
                     site = Console.ReadLine();
                 }
-
                 if(string.IsNullOrEmpty(username)) {
                     Console.Write("Username: ");
                     username = Console.ReadLine();
@@ -107,7 +104,6 @@ namespace MindTouch.PageGrants {
                     Console.Write("Password: ");
                     password = ReadPassword();
                 }
-
                 CheckArg(site, "No sitename was specified");
                 CheckArg(username, "No username was specified");
                 CheckArg(password, "No password was specified");
@@ -122,7 +118,7 @@ namespace MindTouch.PageGrants {
             try {
                 config = XDocFactory.LoadFrom(configFile, MimeType.XML);
             } catch(FileNotFoundException) {
-                Console.WriteLine(string.Format("Could not find file: {0}", configFile));
+                Console.Error.WriteLine("ERROR: Could not find file: {0}", configFile);
                 return -1;
             }
 
@@ -131,7 +127,7 @@ namespace MindTouch.PageGrants {
             foreach(var pageXml in config["//page"]) {
                 var pagePath = pageXml["path"].AsText;
                 if(string.IsNullOrEmpty(pagePath)) {
-                    Console.WriteLine(String.Format("WARNING: page path was not specified: \n\n{0}", pageXml));
+                    Console.Error.WriteLine("WARNING: page path was not specified: \n\n{0}", pageXml);
                     continue;
                 }
                 var cascade = pageXml["@cascade"].AsText ?? "none";
@@ -147,7 +143,7 @@ namespace MindTouch.PageGrants {
                 }
             }
             if(pageList.Count == 0) {
-                Console.WriteLine("No page configurations were parsed from the XML config file.");
+                Console.Error.WriteLine("ERROR: No page configurations were parsed from the XML config file.");
                 return -1;
             }
 
@@ -162,7 +158,7 @@ namespace MindTouch.PageGrants {
             try {
                 msg = plug.At("site", "status").Get();
             } catch(Exception ex) {
-                Console.WriteLine(string.Format("Cannot connect to {0} with the provided credentials", site));
+                Console.Error.WriteLine("ERROR: cannot connect to {0} with the provided credentials", site);
                 return -1;
             }
 
@@ -197,12 +193,11 @@ namespace MindTouch.PageGrants {
             try {
                 msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.Cascade).Put(securityDoc);
             } catch(Exception ex) {
-                Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.Path));
+                Console.Error.WriteLine("WARNING: processing of page {0} failed", page.Path);
                 if(verbose) {
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.StackTrace);
+                    Console.Error.WriteLine(ex.Message);
+                    Console.Error.WriteLine(ex.StackTrace);
                 }
-                return;
             }
         }
 
@@ -212,7 +207,7 @@ namespace MindTouch.PageGrants {
         /// <param name="p">options defined in type Options class</param>
         private static void ShowHelp(Options opts) {
             var sw = new StringWriter();
-            sw.WriteLine("Usage: mindtouch.pagegrants.exe -s site.mindtouch.us -u admin -p password config.xml");
+            sw.Error.WriteLine("Usage: mindtouch.pagegrants.exe -s site.mindtouch.us -u admin -p password config.xml");
             opts.WriteOptionDescriptions(sw);
             Console.WriteLine(sw.ToString());
         }
