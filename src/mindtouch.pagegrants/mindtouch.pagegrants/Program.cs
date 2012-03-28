@@ -35,22 +35,26 @@ namespace MindTouch.PageGrants {
     /// Page class to keep track of new restrictions
     /// </summary>
     internal class Page {
-        public string path;
-        public string cascade;
-        public string restriction;
-        public List<XDoc> grants;
 
+        //--- Class Fields ---
+        public string Path;
+        public string Cascade;
+        public string Restriction;
+        public List<XDoc> Grants;
+
+        //--- Constructors ---
         public Page(string path, string cascade, string restriction, List<XDoc> grants) {
-            this.path = path;
-            this.cascade = cascade;
-            this.restriction = restriction;
-            this.grants = grants;
+            this.Path = path;
+            this.Cascade = cascade;
+            this.Restriction = restriction;
+            this.Grants = grants;
         }
 
+        //--- Methods ---
         public override string ToString() {
             var sw = new StringWriter();
-            sw.WriteLine(string.Format("Page path: {0}\nRestriction: {1}\nCascade: {2}", path, restriction, cascade));
-            foreach(var grant in grants) {
+            sw.WriteLine(string.Format("Page path: {0}\nRestriction: {1}\nCascade: {2}", Path, Restriction, Cascade));
+            foreach(var grant in Grants) {
                 sw.WriteLine(string.Format("\n{0}\n", grant));
             }
             return sw.ToString();
@@ -58,6 +62,8 @@ namespace MindTouch.PageGrants {
     };
 
     internal class Program {
+
+        //--- Class Methods ---
         static int Main(string[] args) {
             string site = "", username = "", password = "";
             bool verbose = false, dryrun = false;
@@ -87,6 +93,21 @@ namespace MindTouch.PageGrants {
                 } catch(InvalidOperationException) {
                     showHelp = true;
                 }
+
+                if(string.IsNullOrEmpty(site)) {
+                    Console.Write("Site: ");
+                    site = Console.ReadLine();
+                }
+
+                if(string.IsNullOrEmpty(username)) {
+                    Console.Write("Username: ");
+                    username = Console.ReadLine();
+                }
+                if(string.IsNullOrEmpty(password)) {
+                    Console.Write("Password: ");
+                    password = ReadPassword();
+                }
+
                 CheckArg(site, "No sitename was specified");
                 CheckArg(username, "No username was specified");
                 CheckArg(password, "No password was specified");
@@ -105,18 +126,18 @@ namespace MindTouch.PageGrants {
                 return -1;
             }
 
-            // Create page listing from config file
+            // Create page list from config file
             var pageList = new List<Page>();
             foreach(var pageXml in config["//page"]) {
-                var pagePath = pageXml["./path"].AsText;
+                var pagePath = pageXml["path"].AsText;
                 if(string.IsNullOrEmpty(pagePath)) {
                     Console.WriteLine(String.Format("WARNING: page path was not specified: \n\n{0}", pageXml));
                     continue;
                 }
-                var cascade = pageXml["./@cascade"].AsText ?? "none";
-                var restriction = pageXml["./restriction"].AsText ?? "Public";
+                var cascade = pageXml["@cascade"].AsText ?? "none";
+                var restriction = pageXml["restriction"].AsText ?? "Public";
                 var grants = new List<XDoc>();
-                foreach(var grant in pageXml[".//grant"]) {
+                foreach(var grant in pageXml["grant"]) {
                     grants.Add(grant);
                 }
                 var p = new Page(pagePath, cascade, restriction, grants);
@@ -130,7 +151,7 @@ namespace MindTouch.PageGrants {
                 return -1;
             }
 
-            // Connect to MindTouch
+            // Test connection to MindTouch
             if(!site.StartsWith("http://") && !site.StartsWith("https://")) {
                 site = "http://" + site;
             }
@@ -147,33 +168,37 @@ namespace MindTouch.PageGrants {
             }
 
             // Update pages
-            foreach(var page in pageList) {
-                if(!dryrun) {
-                    UpdatePage(plug, page, verbose);
+            if(!dryrun) {
+                foreach(var page in pageList) {  
+                    UpdatePage(plug, page, verbose);       
                 }
             }
-
             return 0;
         }
 
+        /// <summary>
+        /// Update security Doc on MindTouch page
+        /// </summary>
+        /// <param name="plug">Authenticated Plug to use to connect to mindtouch</param>
+        /// <param name="page">Page class that contains all information to perform the update</param>
+        /// <param name="verbose">Print verbose information</param>
         private static void UpdatePage(Plug plug, Page page, bool verbose) {
             if(verbose) {
-                Console.WriteLine("Processing page: " + page.path);
+                Console.WriteLine("Processing page: " + page.Path);
             }
-            string encodedPath = XUri.DoubleEncode(page.path);
+            string encodedPath = XUri.DoubleEncode(page.Path);
             DreamMessage msg;
             var securityDoc = new XDoc("security");
-            securityDoc.Add(new XDoc("permissions.page").Elem("restriction", page.restriction));
-
-            var grants = new XDoc("grants");
-            foreach(var grant in page.grants) {
-                grants.Add(grant);
+            securityDoc.Add(new XDoc("permissions.page").Elem("restriction", page.Restriction));
+            securityDoc.Start("grants");
+            foreach(var grant in page.Grants) {
+                securityDoc.Add(grant);
             }
-            securityDoc.Add(grants);
+            securityDoc.End();
             try {
-                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.cascade).Put(securityDoc);
+                msg = plug.At("pages", "=" + encodedPath, "security").With("cascade", page.Cascade).Put(securityDoc);
             } catch(Exception ex) {
-                Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.path));
+                Console.WriteLine(string.Format("WARNING: processing of page {0} failed", page.Path));
                 if(verbose) {
                     Console.WriteLine(ex.Message);
                     Console.WriteLine(ex.StackTrace);
@@ -182,17 +207,51 @@ namespace MindTouch.PageGrants {
             }
         }
 
-        private static void ShowHelp(Options p) {
+        /// <summary>
+        /// Print help
+        /// </summary>
+        /// <param name="p">options defined in type Options class</param>
+        private static void ShowHelp(Options opts) {
             var sw = new StringWriter();
             sw.WriteLine("Usage: mindtouch.pagegrants.exe -s site.mindtouch.us -u admin -p password config.xml");
-            p.WriteOptionDescriptions(sw);
+            opts.WriteOptionDescriptions(sw);
             Console.WriteLine(sw.ToString());
         }
 
+        /// <summary>
+        /// Check if argument is set
+        /// </summary>
+        /// <param name="arg">Name of the argument</param>
+        /// <param name="message">Error message to display if argument was not set</param>
         private static void CheckArg(string arg, string message) {
             if(string.IsNullOrEmpty(arg)) {
                 throw new ArgumentException(message);
             }
+        }
+
+        /// <summary>
+        /// Read password from user input
+        /// </summary>
+        /// <returns>password</returns>
+        private static string ReadPassword() {
+            StringBuilder password = new StringBuilder();
+            for(ConsoleKeyInfo info = Console.ReadKey(true); info.Key != ConsoleKey.Enter; info = Console.ReadKey(true)) {
+                if(info.Key == ConsoleKey.Backspace) {
+                    if(password.Length > 0) {
+                        password = password.Remove(password.Length - 1, 1);
+                        if(!SysUtil.IsUnix) {
+                            Console.Write("\b \b");
+                        }
+                    }
+                } else {
+                    password.Append(info.KeyChar);
+                    if(!SysUtil.IsUnix) {
+                        Console.Write("*");
+                    }
+                }
+            }
+            Console.WriteLine();
+            return password.ToString();
         }
     }
 }
