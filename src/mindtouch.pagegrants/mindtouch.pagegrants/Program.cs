@@ -207,7 +207,7 @@ namespace MindTouch.PageGrants {
         /// <param name="p">options defined in type Options class</param>
         private static void ShowHelp(Options opts) {
             var sw = new StringWriter();
-            sw.Error.WriteLine("Usage: mindtouch.pagegrants.exe -s site.mindtouch.us -u admin -p password config.xml");
+            sw.WriteLine("Usage: mindtouch.pagegrants.exe -s site.mindtouch.us -u admin -p password config.xml");
             opts.WriteOptionDescriptions(sw);
             Console.WriteLine(sw.ToString());
         }
